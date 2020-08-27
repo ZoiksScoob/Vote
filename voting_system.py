@@ -3,79 +3,184 @@ import warnings
 import pandas as pd
 import numpy as np
 import random as rnd
-from typing import List, Tuple, Sequence, Literal, Dict
 from itertools import chain
-from collections import Counter
 from iteround import saferound
 
 
-Candidates = Tuple[str]
-Votes = List[Tuple[int]]
-Winners = List[Dict[Literal['choice', 'n_votes'], int]]
-
-
-_typing_doc = """
-The candidates are the tuple of people standing for the election.
-The votes is a list of tuples, where each tuple contains the choices
-of the voter, from 1st choice at the 1st position in the list, etc.
-"""
-
-
-def _validate_votes(candidates: Candidates, votes: Votes) -> None:
+class Vote:
     """
-    Validates if choices within votes are among those given in candidates,
-    and that each vote has at least 1 choice.
-    """ + _typing_doc
+    This class serves to aggregate a collection of votes
+    ready for counting in a ballot.
 
-    smallest_choice = min(chain.from_iterable(votes))
-    largest_choice = max(chain.from_iterable(votes))
+    It can also be used to generate a set of votes for simulation.
 
-    if smallest_choice < 0 or largest_choice > (len(candidates) - 1):
-        raise ValueError('Invalid options selected in votes.')
+    Args:
+        votes:
+                list/tuple of list/tuple(s) of int/str
+            A list/tuple of list/tuple, where each child list/tuple
+            is a ranked vote, index 0 being 1st preference,
+            with str values if the candidate names are provided,
+            or int as an identifier, where the int is an index
+            for the candidates .
 
-    if min((len(vote) for vote in votes)) == 0:
-        raise ValueError('Each vote must contain at least 1 choice.')
-
-
-def first_past_the_post(candidates: Candidates, votes: Votes) \
-        -> Tuple[str, int]:
+        candidates:
+                list/tuple of str
+                default: None
+            A list/tuple of names for the candidates.
+            If strings are provided in the votes, and the candidates
+            argument is not provided then this is constructed from the
+            votes using .capitalized() form of the values.
     """
+
+    def __init__(self, votes, candidates=None):
+        self.votes = votes
+        self.candidates = candidates
+        self._validate()
+
+    def _validate(self):
+        # Validate container constraint of votes
+        container = (tuple, list)
+
+        assert isinstance(self.votes, container)
+        assert all(isinstance(vote, container) for vote in self.votes)
+
+        # Check the votes are comprised of ints or strings
+        choices = set(choice for choice in chain.from_iterable(self.votes))
+
+        string_votes = all(isinstance(choice, str) for choice in choices)
+        int_votes = all(isinstance(choice, int) for choice in choices)
+
+        assert string_votes or int_votes
+
+        # Handle candidates being supplied
+        if self.candidates is not None:
+            # Validate container constraint of candidates
+            assert isinstance(self.candidates, container)
+
+            # Check candidates are all strings with no duplicates
+            assert all(isinstance(cand, str) for cand in self.candidates)
+            assert len(self.candidates) == len(set(self.candidates))
+
+            # Check no vote has too many choices
+            assert len(self.candidates) >= max(len(v) for v in self.votes)
+
+            # Check string votes are valid choices
+            if string_votes:
+                choices.issubset(set(self.candidates))
+            # Or if int votes, check the range of values are valid indices
+            else:
+                assert min(choices) >= 0
+                assert max(choices) <= len(self.candidates)
+
+            self._agg_replace = True
+
+        else:
+            if string_votes:
+                self.candidates = tuple(choices)
+                self._agg_replace = True
+            else:
+                self.candidates = tuple(f'candidate_{i + 1}' for i in range(max(choices)))
+                self._agg_replace = False
+
+    def aggregate(self, manner='all'):
+        """
+        Arguments:
+            manner - one of "all" if aggregating by all choices in
+                     the votes, or "first" if only considering the
+                     first choice.
+
+        Returns:
+            DataFrame of the form:
+
+            choice | choice2 | choice3 | ... | n_votes
+            ...
+
+            Entries are int (float) / np.Nan, corresponding to
+            index position of candidate in candidates attribute.
+
+        Method to aggregate the votes into a dataframe for use in
+        ballot functions.
+        """
+        assert manner in ('all', 'first')
+
+        columns = [f'choice{i + 1 if i else ""}'
+                   for i in range(len(self.candidates))]
+
+        df = pd.DataFrame(self.votes, columns=columns)
+
+        if manner == 'first':
+            columns = ['choice']
+            df = df[columns]
+
+        df['n_votes'] = 1
+
+        if self._agg_replace:
+            replacements = {nm: i for (i, nm) in enumerate(self.candidates)}
+
+            df.replace(replacements, inplace=True)
+
+        df = df.fillna(-1).groupby(columns, as_index=False).sum()
+
+        df.replace([-1], [np.NaN], inplace=True)
+
+        return df
+
+    @classmethod
+    def generate(cls, n_candidates: int = 5, n_votes: int = 1000):
+        """
+        This static method serves to produce a Vote class with
+        a set of candidates and votes already generated.
+        """
+        assert n_votes > 0 and n_candidates > 0
+
+        candidates = tuple(f'candidate_{i + 1}' for i in range(n_candidates))
+
+        votes = [rnd.sample(candidates, rnd.randint(1, len(candidates)))
+                 for i in range(n_votes)]
+
+        return cls(votes=votes, candidates=candidates)
+
+
+def first_past_the_post(vote: Vote):
+    """
+    Arguments:
+        vote - an instance of the Vote class
+
+    Returns:
+        A list of dictionaries of the form
+        [{'choice': <choice>, 'n_votes': <n_votes>}, ...]
+
     First Past the Post is a system where each voter has one vote,
     and the candidate with the most votes wins.
     This means if a vote from a voter has more than one choice,
     then only the 1st choice will be considered.
-    """ + _typing_doc
-
-    _validate_votes(candidates, votes)
-
-    first_choices = [first_choice for (first_choice, *rest) in votes]
-
-    count = Counter(first_choices)
-
-    [winner] = count.most_common(1)
-
-    # Replace the index position / id of the candidate with the name
-    winner[0] = candidates[winner[0]]
-
-    return winner
-
-
-def _create_votes_dataframe(candidates, votes):
-    columns = [f'choice{i+1 if i else ""}' for i in range(len(candidates))]
-
-    votes_df = pd.DataFrame(votes, columns=columns)
-
-    votes_df['n_votes'] = 1
-
-    votes_df = votes_df.fillna(-1).groupby(columns, as_index=False).sum()
-
-    votes_df.replace([-1], [np.NaN], inplace=True)
-
-    return votes_df
-
-
-def single_transferable_vote(candidates: Candidates, votes: Votes, n_seats: int = 1):
     """
+
+    candidates = vote.candidates
+
+    df = vote.aggregate('first')
+
+    columns = ['choice', 'n_votes']
+
+    mask_winner = (df.n_votes == df.n_votes.max())
+
+    replacements = {i: cand for (i, cand) in enumerate(candidates)}
+
+    winners = df[columns][mask_winner].replace(replacements).to_dict('records')
+
+    return winners
+
+
+def single_transferable_vote(vote: Vote, n_seats: int = 1):
+    """
+    Arguments:
+        vote - an instance of the Vote class
+        n_seats - an integer between 1 and the number of candidates (inclusive)
+
+    Returns:
+        A list of dictionaries of the form
+        [{'choice': <choice>, 'n_votes': <n_votes>}, ...]
+
     Single Transferable Vote is a voting system where each voter ranks
     the candidates in order of preference.
 
@@ -100,14 +205,14 @@ def single_transferable_vote(candidates: Candidates, votes: Votes, n_seats: int 
     There are some conditions that the votes need to meet, namely, as
     a winner is one who has met the quota, the number of votes must be
     greater of equal than the (num. seats) * (quota).
-    """ + _typing_doc
-
-    _validate_votes(candidates, votes)
+    """
 
     # Additional validation of input data for STV
     # Need a valid value for the number of seats
     if not isinstance(n_seats, int) and n_seats <= 0:
         raise ValueError('The number of seats must be an integer >= 1.')
+
+    candidates, votes = vote.candidates, vote.votes
 
     quota = math.floor(len(votes) / (n_seats + 1)) + 1
 
@@ -118,11 +223,6 @@ def single_transferable_vote(candidates: Candidates, votes: Votes, n_seats: int 
             'Too few votes to allocate all seats; # votes < (quota * # seats).',
             f'{len(votes)} votes cast, need {quota * n_seats}.'
             )
-
-    # Create a table of the votes, grouping like rankings.
-    votes_df = _create_votes_dataframe(candidates, votes)
-
-    winners = list()
 
     # Define functions for the iteration where the winners are selected
     # Need a function to calculate winners, subtract spent votes, and transfer from losers
@@ -140,13 +240,12 @@ def single_transferable_vote(candidates: Candidates, votes: Votes, n_seats: int 
 
         # Construct dictionaries of the winners as
         # {'choice': <choice>, 'n_votes': <n_votes>}
-        winners = choices[choices.n_votes >= quota].to_dict(orient='records')
+        winners = choices[choices.n_votes >= quota].copy()
 
         return winners
 
     def subtract_votes_from_winners(df, new_winners, quota):
-        for winner in new_winners:
-            winner_id = winner['choice']
+        for winner_id in new_winners['choice']:
 
             # Get the votes of the winner and have the quota proportionally 
             # deducted across their rows
@@ -186,7 +285,8 @@ def single_transferable_vote(candidates: Candidates, votes: Votes, n_seats: int 
 
         rename_cols = last_col + shift_cols
 
-        rename_cols = {rename_cols[i + 1]: rename_cols[i] for i in range(len(rename_cols) - 1)}
+        rename_cols = {rename_cols[i + 1]: rename_cols[i] 
+                       for i in range(len(rename_cols) - 1)}
 
         df_losers.rename(columns=rename_cols, inplace=True)
 
@@ -215,17 +315,21 @@ def single_transferable_vote(candidates: Candidates, votes: Votes, n_seats: int 
     # TODO: Handle ties
     # TODO: Reimplement using Meek algorithm https://blog.opavote.com/2017/04/meek-stv-explained.html
 
-    shift_cols = votes_df.columns[votes_df.columns.str.contains('choice')].tolist()
+    votes_df = vote.aggregate()
+
+    choice_cols_mask = votes_df.columns.str.contains('choice')
+    shift_cols = votes_df.columns[choice_cols_mask].tolist()
 
     i = 0
+    winners = pd.DataFrame()
 
     while len(winners) < n_seats:
         new_winners = calculate_winners(votes_df, quota)
 
-        winners.extend(new_winners)
+        winners = pd.concat([winners, new_winners])
 
         if i == 0:
-            if new_winners:
+            if not new_winners.empty:
                 votes_df = subtract_votes_from_winners(votes_df, new_winners, quota)
         else:
             votes_df = transfer_from_losers(votes_df, shift_cols)
@@ -236,30 +340,18 @@ def single_transferable_vote(candidates: Candidates, votes: Votes, n_seats: int 
             warnings.warn('Unresolvable situation, incomplete set of winners selected')
             break
 
+    replacements = {i: cand for (i, cand) in enumerate(candidates)}
+    
+    winners = winners.replace(replacements).to_dict('records')
+
     return winners
-
-
-def generate_candidates_and_votes(n_candidates: int, n_votes: int) \
-        -> Tuple[List[int], List[List[int]]]:
-    assert n_votes > 0 and n_candidates > 0
-
-    candidates = list(range(n_candidates))
-
-    votes = [rnd.sample(candidates, rnd.randint(1, len(candidates)))
-             for i in range(n_votes)]
-
-    return candidates, votes
 
 
 class RoundingError(Exception):
     pass
 
 
-Strategy = Literal['difference', 'largest', 'smallest']
-
-
-def proportional_deduction_retain_int(X: pd.Series, n: int, strategy: Strategy = 'difference') \
-        -> Sequence[int]:
+def proportional_deduction_retain_int(X: pd.Series, n: int, strategy = 'difference'):
     """
     This function deducts an amount across a sequence of values, and then uses
     iteround.saferound (strategy='largest') to adjust to integer values, to
@@ -274,6 +366,10 @@ def proportional_deduction_retain_int(X: pd.Series, n: int, strategy: Strategy =
 
     if min(X) < 0:
         raise ValueError('Sequence must contain only positive integers.')
+
+    strategies = ('difference', 'largest', 'smallest')
+    if strategy not in strategies:
+        raise ValueError(f'Strategy must be one of {",".join(strategies)}.')
 
     sum_X = sum(X)
 
