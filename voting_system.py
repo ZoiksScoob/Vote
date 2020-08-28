@@ -126,14 +126,22 @@ class Vote:
         return df
 
     @classmethod
-    def generate(cls, n_candidates: int = 5, n_votes: int = 1000):
+    def generate(cls, candidates=5, n_votes: int = 1000):
         """
+        Arguments:
+            candidates - a non zero int or a list/tuple of
+                non-zero int/str
+
+            n_votes - a non-zero int
+
         This static method serves to produce a Vote class with
         a set of candidates and votes already generated.
         """
-        assert n_votes > 0 and n_candidates > 0
+        assert n_votes > 0
 
-        candidates = tuple(f'candidate_{i + 1}' for i in range(n_candidates))
+        if isinstance(candidates, int):
+            assert candidates > 0
+            candidates = tuple(f'candidate_{i + 1}' for i in range(candidates))
 
         votes = [rnd.sample(candidates, rnd.randint(1, len(candidates)))
                  for i in range(n_votes)]
@@ -141,10 +149,12 @@ class Vote:
         return cls(votes=votes, candidates=candidates)
 
 
-def first_past_the_post(vote: Vote):
+def first_past_the_post(vote: Vote, **kwargs):
     """
     Arguments:
         vote - an instance of the Vote class
+        kwargs - scoops up other arguments to allow all voting
+            funcs to be called in similar fashion.
 
     Returns:
         A list of dictionaries of the form
@@ -171,11 +181,13 @@ def first_past_the_post(vote: Vote):
     return winners
 
 
-def single_transferable_vote(vote: Vote, n_seats: int = 1):
+def single_transferable_vote(vote: Vote, n_seats: int = 1, **kwargs):
     """
     Arguments:
         vote - an instance of the Vote class
         n_seats - an integer between 1 and the number of candidates (inclusive)
+        kwargs - scoops up other arguments to allow all voting
+            funcs to be called in similar fashion.
 
     Returns:
         A list of dictionaries of the form
@@ -341,7 +353,7 @@ def single_transferable_vote(vote: Vote, n_seats: int = 1):
             break
 
     replacements = {i: cand for (i, cand) in enumerate(candidates)}
-    
+
     winners = winners.replace(replacements).to_dict('records')
 
     return winners
