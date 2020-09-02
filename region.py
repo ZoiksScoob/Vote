@@ -12,9 +12,14 @@ class Region:
     def __init__(self, name, electorate):
         self.name = name
         self.electorate = electorate
+        self._validate()
 
     def __repr__(self):
         return f'Region(name={repr(self.name)}, electorate={repr(self.electorate)})'
+
+    def _validate(self):
+        assert isinstance(self.electorate, int) and self.electorate > 0
+        assert isinstance(self.name, str) and self.name
 
     def simulate_vote(self, method, candidates, n_seats=1):
         func = methods.get(method)
