@@ -3,6 +3,7 @@ import warnings
 import pandas as pd
 import numpy as np
 import random as rnd
+import exceptions as exc
 from itertools import chain
 from iteround import saferound
 
@@ -389,10 +390,6 @@ class Result:
                          for winner in winners]
 
 
-class RoundingError(Exception):
-    pass
-
-
 def proportional_deduction_retain_int(X: pd.Series, n: int, strategy = 'difference'):
     """
     This function deducts an amount across a sequence of values, and then uses
@@ -436,6 +433,6 @@ def proportional_deduction_retain_int(X: pd.Series, n: int, strategy = 'differen
         diff = sum_X - (sum(X) + n)
         message = f'Difference of {diff} between sum of the original values and the new + n).'
         message += f'\nResulting X is {X}'
-        raise RoundingError(message)
+        raise exc.RoundingError(message)
 
     return X
