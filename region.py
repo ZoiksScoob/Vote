@@ -48,6 +48,12 @@ class Country(Region):
     def __repr__(self):
         return f'Country(name={repr(self.name)}, regions={repr(self.regions)})'
 
+    def __iter__(self):
+        return iter(self.regions)
+
+    def __getitem__(self, s):
+        return self.regions[s]
+
     @property
     def regions(self):
         return self._regions
