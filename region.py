@@ -27,7 +27,6 @@ class Region:
         if func is not None:
             vote = vs.Vote.generate(
                 candidates=candidates, n_votes=self.electorate)
-            print(func)
             return func(vote, n_seats=n_seats)
         else:
             raise ValueError(f'Unrecognised voting method "{str(method)}". Valid methods are {", ".join(methods)}')
