@@ -178,7 +178,7 @@ def first_past_the_post(vote: Vote, **kwargs):
 
     winners = df[columns][mask_winner].replace(replacements).to_dict('records')
 
-    return winners
+    return Result(winners)
 
 
 def single_transferable_vote(vote: Vote, n_seats: int = 1, **kwargs):
@@ -356,7 +356,37 @@ def single_transferable_vote(vote: Vote, n_seats: int = 1, **kwargs):
 
     winners = winners.replace(replacements).to_dict('records')
 
-    return winners
+    return Result(winners)
+
+
+class Winner:
+    def __init__(self, name, n_votes):
+        self.name = name
+        self.n_votes = n_votes
+
+    def _validate(self):
+        assert isinstance(self.name, str) and self.name
+        assert isinstance(self.n_votes, int) and self.n_votes > 0
+
+
+class Result:
+    def __init__(self, winners):
+        self.winners = winners
+
+    def __iter__(self):
+        return iter(self.winners)
+
+    def __getitem__(self, s):
+        return self.winners[s]
+
+    @property
+    def winners(self):
+        return self._winners
+
+    @winners.setter
+    def winners(self, winners):
+        self._winners = [Winner(name=winner['choice'], n_votes=winner['n_votes']) 
+                         for winner in winners]
 
 
 class RoundingError(Exception):
