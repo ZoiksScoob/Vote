@@ -17,12 +17,14 @@ class Vote:
 
     Args:
         votes:
-                list/tuple of list/tuple(s) of int/str
-            A list/tuple of list/tuple, where each child list/tuple
-            is a ranked vote, index 0 being 1st preference,
+                list/tuple of int/str
+                or list/tuple of list/tuple(s) of int/str
+            If a list/tuple of str/int then each item is considered as
+            a single vote with one choice, otherwise each list/tuple item
+            is considered a ranked vote, index 0 being 1st preference,
             with str values if the candidate names are provided,
             or int as an identifier, where the int is an index
-            for the candidates .
+            for the candidates.
 
         candidates:
                 list/tuple of str
@@ -37,6 +39,19 @@ class Vote:
         self.votes = votes
         self.candidates = candidates
         self._validate()
+
+    @property
+    def votes(self):
+        return self._votes
+
+    @votes.setter
+    def votes(self, votes):
+        # Check if votes are lists/tuples of choices, i.e. ranked
+        if any(isinstance(vote, (tuple, list)) for vote in votes):
+            self._votes = votes
+        # Otherwise assume we've been passed a list of single choices
+        else:
+            self._votes = [[vote] for vote in votes]
 
     def _validate(self):
         # Validate container constraint of votes
