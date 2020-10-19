@@ -117,6 +117,7 @@ class Vote:
         Method to aggregate the votes into a dataframe for use in
         ballot functions.
         """
+        manner = manner.lower() if isinstance(manner, str) else None
         assert manner in ('all', 'first')
 
         columns = [f'choice{i + 1 if i else ""}'

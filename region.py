@@ -29,7 +29,7 @@ class Region:
                 candidates=candidates, n_votes=self.electorate)
             return func(vote, n_seats=n_seats)
         else:
-            raise ValueError(f'Unrecognised voting method "{str(method)}". Valid methods are {", ".join(methods)}')
+            raise ValueError(f'''Unrecognised voting method "{str(method)}". Valid methods are "{'", "'.join(methods)}"''')
 
     @classmethod
     def generate(cls, lower_bound=1000, upper_bound=10000, name=None):
@@ -45,7 +45,7 @@ class Country(Region):
         super().__init__(name=name, electorate=electorate)
 
     def __repr__(self):
-        return f'Country(name={repr(self.name)}, regions={repr(self.regions)})'
+        return f'{self.__class__.__name__}(name={repr(self.name)}, regions={repr(self.regions)})'
 
     def __iter__(self):
         return iter(self.regions)
@@ -59,7 +59,8 @@ class Country(Region):
 
     @regions.setter
     def regions(self, regions):
-        region_name_set = {region.name for region in regions}
+        parent_class = super()
+        region_name_set = {region.name for region in regions if isinstance(region, Region)}
         assert len(region_name_set) == len(regions)
         self._regions = regions
 
@@ -86,4 +87,4 @@ class Country(Region):
 
             regions.append(region)
 
-        return cls('MyCountry', regions)
+        return cls(f'My{cls.__name__}', regions)
