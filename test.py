@@ -1,4 +1,6 @@
+import os
 import unittest
+import coverage
 import region as r
 import voting_system as vs
 
@@ -117,4 +119,24 @@ class TestVote(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    cov = coverage.coverage(
+        omit=['venv/*', '/usr/*', 'test.py']
+    )
+    cov.start()
+
+    tests = unittest.TestLoader().discover('test')
+    result = unittest.TextTestRunner(verbosity=2).run(tests)
+
+    if result.wasSuccessful():
+        cov.stop()
+        cov.save()
+
+        print('Coverage Summary:')
+        cov.report()
+        basedir = os.path.abspath(os.path.dirname(__file__))
+        covdir = os.path.join(basedir, 'tmp/coverage')
+        cov.html_report(directory=covdir)
+        print('HTML version: file://%s/index.html' % covdir)
+        cov.erase()
+    else:
+        print('Error in running tests.')
