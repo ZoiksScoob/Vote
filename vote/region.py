@@ -22,6 +22,7 @@ class Region:
         assert isinstance(self.name, str) and self.name
 
     def simulate_vote(self, method, candidates, n_seats=1):
+        method = (method.lower() if isinstance(method, str) else None)
         func = methods.get(method)
 
         if func is not None:
