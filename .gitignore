@@ -120,6 +120,7 @@ venv.bak/
 
 # misc
 .idea
+.diff
 
 # mkdocs documentation
 /site
