@@ -1,4 +1,4 @@
-import voting_system as vs
+from vote import voting_system as vs
 import random as rnd
 
 

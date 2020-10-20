@@ -3,7 +3,7 @@ import warnings
 import pandas as pd
 import numpy as np
 import random as rnd
-import exceptions as exc
+from vote import exceptions as exc
 from itertools import chain
 from iteround import saferound
 
