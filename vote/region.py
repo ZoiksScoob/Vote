@@ -15,7 +15,7 @@ class Region:
         self._validate()
 
     def __repr__(self):
-        return f'Region(name={repr(self.name)}, electorate={repr(self.electorate)})'
+        return f'{self.__class__.__name__}(name={repr(self.name)}, electorate={repr(self.electorate)})'
 
     def _validate(self):
         assert isinstance(self.electorate, int) and self.electorate > 0
@@ -40,7 +40,7 @@ class Region:
 
 
 class Country(Region):
-    def __init__(self, name, regions):
+    def __init__(self, name, *regions):
         self.regions = regions
         electorate = sum(region.electorate for region in regions)
         super().__init__(name=name, electorate=electorate)
@@ -89,4 +89,4 @@ class Country(Region):
 
         name = f'My{cls.__name__}' if not (isinstance(name, str) and name) else name
 
-        return cls(f'{name}', regions)
+        return cls(f'{name}', *regions)
