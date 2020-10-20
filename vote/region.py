@@ -76,15 +76,17 @@ class Country(Region):
         return regional_winners
 
     @classmethod
-    def generate(cls, n_regions, regional_lower_bound, regional_upper_bound):
+    def generate(cls, lower_bound=1000, upper_bound=10000, name=None, n_regions=5):
         regions = []
 
         for i in range(n_regions):
-            name = 'MyRegion' + str(i + 1)
+            r_name = 'MyRegion' + str(i + 1)
 
             region = Region.generate(
-                lower_bound=regional_lower_bound, upper_bound=regional_upper_bound, name=name)
+                lower_bound=lower_bound, upper_bound=upper_bound, name=r_name)
 
             regions.append(region)
 
-        return cls(f'My{cls.__name__}', regions)
+        name = f'My{cls.__name__}' if not (isinstance(name, str) and name) else name
+
+        return cls(f'{name}', regions)
