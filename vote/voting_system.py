@@ -63,10 +63,13 @@ class Vote:
         # Check the votes are comprised of ints or strings
         choices = set(choice for choice in chain.from_iterable(self.votes))
 
-        string_votes = all(isinstance(choice, str) for choice in choices)
-        int_votes = all(isinstance(choice, int) for choice in choices)
+        votes_types = set(type(choice) for choice in choices)
 
-        assert string_votes or int_votes
+        assert len(votes_types) == 1
+
+        votes_type = votes_types.pop()
+
+        assert votes_type in (int, str)
 
         # Handle candidates being supplied
         if self.candidates is not None:
@@ -77,26 +80,26 @@ class Vote:
             assert all(isinstance(cand, str) for cand in self.candidates)
             assert len(self.candidates) == len(set(self.candidates))
 
-            # Check no vote has too many choices
-            assert len(self.candidates) >= max(len(v) for v in self.votes)
-
-            # Check string votes are valid choices
-            if string_votes:
-                choices.issubset(set(self.candidates))
-            # Or if int votes, check the range of values are valid indices
-            else:
-                assert min(choices) >= 0
-                assert max(choices) <= len(self.candidates)
-
             self._agg_replace = True
 
         else:
-            if string_votes:
+            if votes_type is str:
                 self.candidates = tuple(choices)
                 self._agg_replace = True
             else:
                 self.candidates = tuple(f'candidate_{i + 1}' for i in range(max(choices)))
                 self._agg_replace = False
+
+        # Check no vote has too many choices
+        assert len(self.candidates) >= max(len(v) for v in self.votes)
+
+        # Check string votes are valid choices
+        if votes_type is str:
+            assert choices.issubset(set(self.candidates))
+        # Or if int votes, check the range of values are valid indices
+        else:
+            assert min(choices) >= 0
+            assert max(choices) <= len(self.candidates)
 
     def aggregate(self, manner='all'):
         """
@@ -120,14 +123,16 @@ class Vote:
         manner = manner.lower() if isinstance(manner, str) else None
         assert manner in ('all', 'first')
 
-        columns = [f'choice{i + 1 if i else ""}'
-                   for i in range(len(self.candidates))]
-
-        df = pd.DataFrame(self.votes, columns=columns)
+        df = pd.DataFrame(self.votes)
 
         if manner == 'first':
+            df = df.iloc[:, 0:1]
             columns = ['choice']
-            df = df[columns]
+        else:
+            N = min(len(self.candidates), df.shape[1])
+            columns = [f'choice{i + 1 if i else ""}' for i in range(N)]
+
+        df.columns = columns
 
         df['n_votes'] = 1
 
@@ -395,6 +400,9 @@ class Result:
 
     def __getitem__(self, s):
         return self.winners[s]
+
+    def __len__(self):
+        return len(self.winners)
 
     @property
     def winners(self):
