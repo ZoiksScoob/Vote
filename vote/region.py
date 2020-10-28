@@ -18,8 +18,17 @@ class Region:
         return f'{self.__class__.__name__}(name={repr(self.name)}, electorate={repr(self.electorate)})'
 
     def _validate(self):
-        assert isinstance(self.electorate, int) and self.electorate > 0
-        assert isinstance(self.name, str) and self.name
+        electorate_error_msg = 'Electorate must be a positive integer.'
+        name_error_msg = 'Name must be a truthy string.'
+
+        if not isinstance(self.electorate, int):
+            raise TypeError(electorate_error_msg)
+        elif self.electorate <= 0:
+            raise ValueError(electorate_error_msg)
+        elif not isinstance(self.name, str):
+            raise TypeError(name_error_msg)
+        elif not self.name:
+            raise ValueError(name_error_msg)
 
     def simulate_vote(self, method, candidates, n_seats=1):
         method = (method.lower() if isinstance(method, str) else None)
@@ -60,8 +69,9 @@ class Country(Region):
 
     @regions.setter
     def regions(self, regions):
-        region_name_set = {region.name for region in regions if isinstance(region, Region)}
-        assert len(region_name_set) == len(regions)
+        not_regions = {region for region in regions if not isinstance(region, Region)}
+        if not_regions:
+            raise TypeError('Only a container of Regions are permitted for the region argument.')
         self._regions = regions
 
     def simulate_vote(self, method, candidates, n_seats=1):
