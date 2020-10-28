@@ -200,7 +200,7 @@ def first_past_the_post(vote: Vote, **kwargs):
 
     winners = df[columns][mask_winner].replace(replacements).to_dict('records')
 
-    return Result(winners)
+    return Result(winners, (len(winners) != 1))
 
 
 def single_transferable_vote(vote: Vote, n_seats: int = 1, **kwargs):
@@ -392,8 +392,9 @@ class Winner:
 
 
 class Result:
-    def __init__(self, winners):
+    def __init__(self, winners, is_tie=False):
         self.winners = winners
+        self.is_tie = is_tie
 
     def __iter__(self):
         return iter(self.winners)

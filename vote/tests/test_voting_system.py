@@ -62,11 +62,37 @@ class TestVote(unittest.TestCase):
             vs.Vote(votes=votes, candidates=candidates)
 
 
+class TestFirstPastThePost(unittest.TestCase):
+    def test_return_result_class(self):
+        votes = (5 * [1]) + (4 * [2]) + (30 * [3])
+        my_vote = vs.Vote(votes=votes)
+        my_result = vs.first_past_the_post(my_vote)
 
-        votes = [[1, 2, 3, 4], [1, 2], [3, 2], [1], [2], [2], [3, 1]]
-        candidates = ['A', 'B', 'C']
+        self.assertIsInstance(my_result, vs.Result)
 
-        try:
-            vs.Vote(votes=votes, candidates=candidates)
-        except AssertionError:
-            pass
+        types = {type(winner) for winner in my_result}
+
+        self.assertEqual(len(types), 1)
+        self.assertIs(types.pop(), vs.Winner)
+
+        self.assertTrue(hasattr(my_result[0], 'name'))
+        self.assertTrue(hasattr(my_result[0], 'n_votes'))
+
+    def test_select_correct_winner(self):
+        votes = (5 * [1]) + (4 * [2]) + (30 * [3])
+        my_vote = vs.Vote(votes=votes)
+        my_result = vs.first_past_the_post(my_vote)
+
+        self.assertFalse(my_result.is_tie)
+        self.assertEquals(len(my_result), 1)
+
+        self.assertEquals(my_result[0].name, 3)
+        self.assertEquals(my_result[0].n_votes, 30)
+
+    def test_handle_tie(self):
+        votes = (5 * [1]) + (30 * [2]) + (30 * [3])
+        my_vote = vs.Vote(votes=votes)
+        my_result = vs.first_past_the_post(my_vote)
+
+        self.assertTrue(my_result.is_tie)
+        self.assertAlmostEqual(len(my_result.winners), 2)
