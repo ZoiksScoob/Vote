@@ -38,6 +38,7 @@ class Vote:
     def __init__(self, votes, candidates=None):
         self.votes = votes
         self.candidates = candidates
+        self.candidate_ordinals = None  # set in self._validate()
         self._validate()
 
     @property
@@ -101,6 +102,8 @@ class Vote:
             assert min(choices) >= 0
             assert max(choices) <= len(self.candidates)
 
+        self.candidate_ordinals = list(range(1, len(self.candidates) + 1))
+
     def aggregate(self, manner='all'):
         """
         Arguments:
@@ -129,15 +132,15 @@ class Vote:
             df = df.iloc[:, 0:1]
             columns = ['choice']
         else:
-            N = min(len(self.candidates), df.shape[1])
-            columns = [f'choice{i + 1 if i else ""}' for i in range(N)]
+            n = min(len(self.candidates), df.shape[1])
+            columns = [f'choice{i + 1 if i else ""}' for i in range(n)]
 
         df.columns = columns
 
         df['n_votes'] = 1
 
         if self._agg_replace:
-            replacements = {nm: i for (i, nm) in enumerate(self.candidates)}
+            replacements = {nm: i + 1 for (i, nm) in enumerate(self.candidates)}
 
             df.replace(replacements, inplace=True)
 
@@ -187,16 +190,13 @@ def first_past_the_post(vote: Vote, **kwargs):
     This means if a vote from a voter has more than one choice,
     then only the 1st choice will be considered.
     """
-
-    candidates = vote.candidates
-
     df = vote.aggregate('first')
 
     columns = ['choice', 'n_votes']
 
     mask_winner = (df.n_votes == df.n_votes.max())
 
-    replacements = {i: cand for (i, cand) in enumerate(candidates)}
+    replacements = dict(zip(vote.candidate_ordinals, vote.candidates))
 
     winners = df[columns][mask_winner].replace(replacements).to_dict('records')
 
@@ -246,7 +246,7 @@ def single_transferable_vote(vote: Vote, n_seats: int = 1, **kwargs):
     if not isinstance(n_seats, int) and n_seats <= 0:
         raise ValueError('The number of seats must be an integer >= 1.')
 
-    candidates, votes = vote.candidates, vote.votes
+    votes = vote.votes
 
     quota = math.floor(len(votes) / (n_seats + 1)) + 1
 
