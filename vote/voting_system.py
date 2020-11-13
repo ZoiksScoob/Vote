@@ -8,7 +8,26 @@ from itertools import chain
 from iteround import saferound
 
 
-class Vote:
+class AbstractBase:
+    def _shorten_container_repr(self, attr_repr):
+        attr_repr_len_lim = 20
+        open_bracket = attr_repr[0]
+        close_bracket = attr_repr[-1]
+
+        if len(attr_repr) > attr_repr_len_lim:
+            try:
+                slice_offset = attr_repr[attr_repr_len_lim:0:-1].index('close_bracket') - 1
+                attr_repr = attr_repr[:attr_repr_len_lim - slice_offset].strip()
+            except ValueError:
+                attr_repr = attr_repr[:attr_repr_len_lim]
+
+            n_brackets = attr_repr.count(open_bracket) - attr_repr.count(close_bracket)
+            attr_repr += '...' + n_brackets * close_bracket
+
+        return attr_repr
+
+
+class Vote(AbstractBase):
     """
     This class serves to aggregate a collection of votes
     ready for counting in a ballot.
@@ -40,6 +59,12 @@ class Vote:
         self.candidates = candidates
         self.candidate_ordinals = None  # set in self._validate()
         self._validate()
+
+    def __repr__(self):
+        cls_name = self.__class__.__name__
+        votes_repr = self._shorten_container_repr(repr(self.votes))
+        candidates_repr = self._shorten_container_repr(repr(self.candidates))
+        return f'{cls_name}(votes={votes_repr}, candidates={candidates_repr})'
 
     @property
     def votes(self):
@@ -374,27 +399,37 @@ def single_transferable_vote(vote: Vote, n_seats: int = 1, **kwargs):
             warnings.warn('Unresolvable situation, incomplete set of winners selected')
             break
 
-    replacements = {i: cand for (i, cand) in enumerate(candidates)}
+    replacements = dict(zip(vote.candidate_ordinals, vote.candidates))
 
     winners = winners.replace(replacements).to_dict('records')
 
     return Result(winners)
 
 
-class Winner:
+class Winner(AbstractBase):
     def __init__(self, name, n_votes):
         self.name = name
         self.n_votes = n_votes
+        self._validate()
+
+    def __repr__(self):
+        cls_name = self.__class__.__name__
+        return f'{cls_name}(name={repr(self.name)}, n_votes={repr(self.n_votes)})'
 
     def _validate(self):
         assert isinstance(self.name, str) and self.name
         assert isinstance(self.n_votes, int) and self.n_votes > 0
 
 
-class Result:
+class Result(AbstractBase):
     def __init__(self, winners, is_tie=False):
         self.winners = winners
         self.is_tie = is_tie
+
+    def __repr__(self):
+        cls_name = self.__class__.__name__
+        winners_repr = self._shorten_container_repr(repr(self.winners))
+        return f'{cls_name}(winners={winners_repr}, is_tie={repr(self.is_tie)})'
 
     def __iter__(self):
         return iter(self.winners)
